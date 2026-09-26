@@ -1,0 +1,19 @@
+# 依赖与构建产物
+node_modules/
+dist/
+
+# 密钥：绝不入库。.env.example 是模板，保留
+.env
+.env.*
+!.env.example
+
+# 运行时数据：数据库含用户 openid 与聊天正文
+data/
+backups/
+*.db
+*.db-wal
+*.db-shm
+
+# 日志（现已走 journald，logs/ 是历史残留）
+logs/
+*.log

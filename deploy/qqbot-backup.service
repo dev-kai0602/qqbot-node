@@ -1,0 +1,28 @@
+[Unit]
+Description=QQ Bot SQLite backup (transaction-consistent snapshot)
+Documentation=file:///home/kai/qqbot/README.md
+After=qqbot.service
+
+[Service]
+Type=oneshot
+User=kai
+Group=kai
+WorkingDirectory=/home/kai/qqbot
+ExecStart=/home/kai/qqbot/deploy/qqbot-backup.sh
+
+# 与主服务同级的安全加固；只放开备份目录的写权限
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+# 这里刻意放宽到项目根，而不是只写 backups/：
+# systemd 在**执行脚本之前**就要建立 mount namespace，若 ReadWritePaths 指向
+# 一个尚不存在的目录，服务会以 226/NAMESPACE 失败（踩过）。
+# 项目根一定存在，目录创建交给脚本自己做。
+ReadWritePaths=/home/kai/qqbot

@@ -1,0 +1,12 @@
+[Unit]
+Description=Daily QQ Bot SQLite backup
+
+[Timer]
+# 每天 04:00 本地时间；随机延迟 5 分钟避免与整点任务撞车
+OnCalendar=*-*-* 04:00:00
+RandomizedDelaySec=300
+# 关机期间错过的备份，开机后补跑
+Persistent=true
+
+[Install]
+WantedBy=timers.target

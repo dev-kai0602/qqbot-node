@@ -1,0 +1,55 @@
+[Unit]
+Description=QQ Bot (qqbot-test) — 官方 QQ 机器人 Node SDK 接入
+Documentation=file:///home/kai/qqbot/README.md
+After=network-online.target
+Wants=network-online.target
+
+# 崩溃循环保护：5 分钟内最多重启 10 次，超过则进入 failed 等待人工介入
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+[Service]
+Type=simple
+User=kai
+Group=kai
+WorkingDirectory=/home/kai/qqbot
+ExecStart=/usr/bin/node dist/index.js
+
+# 常驻策略：任何退出（含崩溃、被 kill）都拉起
+Restart=always
+RestartSec=5
+
+# 优雅停止：我们的代码在 SIGTERM 时 abort + stop transport，15 秒内未退出再 SIGKILL
+KillSignal=SIGTERM
+TimeoutStopSec=15
+KillMode=mixed
+
+# 日志统一进 journald（journalctl -u qqbot）
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=qqbot
+
+Environment=NODE_ENV=production
+# Node 堆上限，防止异常增长吃掉整机内存
+Environment="NODE_OPTIONS=--max-old-space-size=768 --disable-warning=ExperimentalWarning"
+
+# 资源上限（对照评审 C2：整机 6 GB 预算，本服务限 2 GB）
+MemoryMax=2G
+
+# 安全加固：最小权限运行
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+# ProtectSystem=strict 会把整个文件系统挂成只读，这里单独放开项目目录（日志、后续 SQLite）
+ReadWritePaths=/home/kai/qqbot
+
+[Install]
+WantedBy=multi-user.target
