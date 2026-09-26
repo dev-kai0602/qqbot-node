@@ -27,13 +27,27 @@ function asNumber(value: unknown, fallback: number): number {
   return fallback;
 }
 
+/** 把配置对象的键统一成小写，供大小写不敏感查找 */
+function lowerKeys(src: Readonly<Record<string, unknown>>): Map<string, unknown> {
+  const out = new Map<string, unknown>();
+  for (const [key, value] of Object.entries(src)) out.set(key.toLowerCase(), value);
+  return out;
+}
+
 export function createPluginConfig(
   raw: Readonly<Record<string, unknown>>,
   defaults: Readonly<Record<string, unknown>>
 ): PluginConfig {
+  // 大小写必须在两侧归一：src/config.ts 会把 env 里的 KEY 转成小写，
+  // 而插件是用自己的标识符（通常是 camelCase）读取的。
+  // 早先这里直接 raw[key] 查，导致 camelCase 的配置项永远取不到值、静默回落到默认值。
+  const rawLower = lowerKeys(raw);
+  const defaultsLower = lowerKeys(defaults);
+
   const read = (key: string): unknown => {
-    const v = raw[key];
-    return v === undefined ? defaults[key] : v;
+    const k = key.toLowerCase();
+    const v = rawLower.get(k);
+    return v === undefined ? defaultsLower.get(k) : v;
   };
 
   return {

@@ -53,15 +53,15 @@ npm start
 import type { BotContext, Plugin, PluginContext } from '../../types.js';
 
 export default {
-  name: 'weather',
-  commands: ['/weather'],
-  defaults: { city: '北京' },
+  name: 'hello',
+  commands: ['/hello'],
+  defaults: { greeting: '你好' },
   setup(ctx: PluginContext): void {
-    ctx.log.info('weather ready', { city: ctx.config.string('city', '北京') });
+    ctx.log.info('hello ready', { greeting: ctx.config.string('greeting', '你好') });
   },
   async handle(event: BotContext, ctx: PluginContext): Promise<boolean> {
-    if (event.event.content.trim() !== '/weather') return false;
-    await ctx.api.reply(event, '晴，25 度');
+    if (event.event.content.trim() !== '/hello') return false;
+    await ctx.api.reply(event, ctx.config.string('greeting', '你好'));
     return true;
   }
 } satisfies Plugin;
@@ -70,8 +70,8 @@ export default {
 插件配置走独立命名空间，核心不认识任何插件字段：
 
 ```bash
-QQBOT_PLUGIN_WEATHER_CITY=上海
-QQBOT_PLUGIN_WEATHER_ENABLED=false
+QQBOT_PLUGIN_HELLO_GREETING=早上好
+QQBOT_PLUGIN_HELLO_ENABLED=false
 ```
 
 构建后启动即可。
