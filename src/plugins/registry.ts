@@ -24,15 +24,36 @@ interface Entry {
   ctx?: PluginContext;
 }
 
-function withTimeout<T>(work: Promise<T> | T, ms: number, label: string): Promise<T> {
-  if (ms <= 0) return Promise.resolve(work);
+/**
+ * 超时既「放弃等待」也「通知」：超时瞬间 abort 掉传给插件的 signal，
+ * 让 AI 调用之类的长任务真正被取消，而不是任由它跑完再发一条迟到的回复。
+ */
+function withTimeout<T>(
+  work: (signal: AbortSignal) => Promise<T> | T,
+  ms: number,
+  label: string,
+  parent?: AbortSignal
+): Promise<T> {
+  if (ms <= 0) {
+    const fallback = new AbortController();
+    return Promise.resolve().then(() => work(parent ?? fallback.signal));
+  }
+
+  const controller = new AbortController();
+  const signal = parent === undefined
+    ? controller.signal
+    : AbortSignal.any([parent, controller.signal]);
+
   let timer: ReturnType<typeof setTimeout> | undefined;
   const guard = new Promise<never>((_resolve, reject) => {
     timer = setTimeout(() => {
-      reject(new Error('plugin timed out after ' + ms + 'ms: ' + label));
+      const err = new Error('plugin timed out after ' + ms + 'ms: ' + label);
+      controller.abort(err);
+      reject(err);
     }, ms);
   });
-  return Promise.race([Promise.resolve(work), guard]).finally(() => {
+
+  return Promise.race([Promise.resolve().then(() => work(signal)), guard]).finally(() => {
     if (timer !== undefined) clearTimeout(timer);
   });
 }
@@ -118,10 +139,12 @@ export class PluginRegistry {
       if (handle === undefined || ctx === undefined) continue;
       let handled = false;
       try {
+        // 每个插件拿到自己的 signal（与父 signal 合并），超时或退出时被 abort
         handled = await withTimeout(
-          handle(event, ctx),
+          (signal) => handle({ ...event, signal }, ctx),
           this.handleTimeoutMs,
-          entry.plugin.name
+          entry.plugin.name,
+          event.signal
         );
       } catch (err) {
         this.metrics?.inc('pluginFailures');

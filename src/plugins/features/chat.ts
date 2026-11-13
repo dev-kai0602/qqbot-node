@@ -53,7 +53,13 @@ export function createChatPlugin(): Plugin {
         userId: event.event.senderId,
         ...(speaker !== undefined ? { speaker } : {}),
         text
-      });
+      }, event.signal);
+
+      // 被取消（分发超时 / 进程退出）后不能再发：迟到的那条会变成第二条回复
+      if (event.signal?.aborted === true) {
+        event.log.warn('chat cancelled, reply dropped', { session: sessionKey });
+        return true;
+      }
 
       const output = ctx.services.safety.checkOutput(reply.text);
       if (output.hit) {

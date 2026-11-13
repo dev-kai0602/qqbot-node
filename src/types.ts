@@ -44,6 +44,12 @@ export interface BotContext {
   /** 单次事件内共享的状态槽，插件之间可读写 */
   readonly state: Record<string, unknown>;
   readonly log: Logger;
+  /**
+   * 本次分发的取消信号：分发超时或进程退出时 abort。
+   * 长耗时操作（AI 调用、下载）必须把它透传下去，否则超时只丢弃结果、
+   * 底层工作还在跑，迟到的回复照样会发出去。
+   */
+  readonly signal?: AbortSignal;
 }
 
 /**

@@ -115,6 +115,43 @@ describe('PluginRegistry 错误隔离', () => {
     expect(result.by).toBe('fast');
   });
 
+  it('超时会 abort 传给插件的 signal', async () => {
+    let captured: AbortSignal | undefined;
+    const reg = new PluginRegistry({ log, handleTimeoutMs: 20 });
+    await boot(reg, [
+      {
+        name: 'slow',
+        handle(event) {
+          captured = event.signal;
+          return new Promise<boolean>(() => { /* 永不 resolve */ });
+        }
+      }
+    ]);
+    await reg.dispatch(eventCtx('hi'));
+    expect(captured).toBeDefined();
+    expect(captured?.aborted).toBe(true);
+  });
+
+  it('上游 signal 会传递到插件（进程退出时中断在途任务）', async () => {
+    const parent = new AbortController();
+    let captured: AbortSignal | undefined;
+    const reg = new PluginRegistry({ log });
+    await boot(reg, [
+      {
+        name: 'watch',
+        async handle(event) {
+          captured = event.signal;
+          parent.abort();
+          await Promise.resolve();
+          return event.signal?.aborted === true;
+        }
+      }
+    ]);
+    const result = await reg.dispatch({ ...eventCtx('hi'), signal: parent.signal });
+    expect(captured?.aborted).toBe(true);
+    expect(result.handled).toBe(true);
+  });
+
   it('无插件处理时 handled 为 false', async () => {
     const reg = new PluginRegistry({ log });
     await boot(reg, [{ name: 'nope', handle() { return false; } }]);

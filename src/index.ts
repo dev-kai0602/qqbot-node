@@ -29,7 +29,16 @@ import { createPluginConfig } from './plugins/config.js';
 import { serializeError } from './util/errors.js';
 import type { AiService, BotContext, Logger, MetricsService, Plugin } from './types.js';
 
-const HANDLE_TIMEOUT_MS = 15000;
+/**
+ * 插件处理超时。
+ *
+ * 必须**晚于** AI 单次请求超时：否则一次正常的慢回复会被判成插件超时，
+ * 分发继续往下走（echo 之类的前缀兜底插件会接走这条消息），
+ * 而原 handler 稍后仍会把答案发出去 —— 用户收到两条回复。
+ */
+function pluginTimeoutMs(config: AppConfig): number {
+  return Math.max(15000, config.ai.timeoutMs + 5000);
+}
 
 function buildAi(
   config: AppConfig,
@@ -154,7 +163,11 @@ async function main(): Promise<void> {
     else disabled.push(plugin.name);
   }
 
-  const registry = new PluginRegistry({ log, handleTimeoutMs: HANDLE_TIMEOUT_MS, metrics });
+  const registry = new PluginRegistry({
+    log,
+    handleTimeoutMs: pluginTimeoutMs(config),
+    metrics
+  });
   for (const plugin of enabled) registry.add(plugin);
 
   const transport = new BotTransport(

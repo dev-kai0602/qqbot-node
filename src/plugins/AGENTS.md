@@ -27,5 +27,5 @@
 - **加载顺序 = 文件名升序，且 load-bearing。** 当前是 chat, checkin, echo, ping, privacy, reminder, status——chat 必须排在 echo 之前。改名或新增文件时保持。
 - **echo 是「没有 AI 时」的兜底**：chat 在 ai.available === false 时返回 false，echo 就会对**每一条**非命令消息回 Echo: ...。清空 QQBOT_AI_API_KEY 之前先设 QQBOT_PLUGIN_ECHO_ENABLED=false。
 - setup() 抛错只记日志、不中断启动，插件仍留在 registry 里参与分发。
-- dispatch() 的 15s 超时按插件失败处理并继续下一个插件，**不会取消已经在跑的那个 Promise**。
+- dispatch() 超时（默认 `max(15s, ai.timeoutMs + 5s)`）会 abort 传给插件的 `event.signal`，长耗时调用必须透传它；超时仍按插件失败处理并继续下一个插件，所以**不要指望超时之后还能安全地发消息**。
 - /我的数据 与 /删除我的数据 的删除范围刻意不对等：单聊连机器人回复一起删，群聊只删自己发的（群里的回复是共享内容）。
