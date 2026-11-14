@@ -10,12 +10,14 @@
  */
 
 import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { isPluginEnabled, loadConfig } from './config.js';
 import type { AppConfig } from './config.js';
 import { createLogger } from './logger.js';
 import { createServices } from './services/index.js';
 import { createAiService, createUnavailableAi } from './services/ai/index.js';
 import { createDshAgent, createUnavailableAgent } from './services/agent/dsh.js';
+import { loadPersona, writePersonaPatch } from './services/persona/index.js';
 import { createDeepSeekProvider } from './services/ai/deepseek.js';
 import { DailyBudget } from './services/ai/budget.js';
 import { createSafetyService } from './services/safety.js';
@@ -140,6 +142,16 @@ async function main(): Promise<void> {
   const ai = buildAi(config, log, storage, metrics, budget);
   aiRef = ai;
 
+  // 形象：每次启动重新读卡。换卡不需要改代码，改指针文件即可
+  const persona = await loadPersona({
+    dir: config.persona.dir,
+    pointerFile: config.persona.file,
+    log
+  });
+  const personaPatch = persona === undefined
+    ? undefined
+    : writePersonaPatch(join(config.dataDir, 'persona.patch.yml'), persona, log);
+
   const agent = !config.agent.enabled
     ? createUnavailableAgent(log, 'agent_disabled')
     : config.ai.apiKey === ''
@@ -151,6 +163,8 @@ async function main(): Promise<void> {
           baseArgs: [
             '--profile', config.agent.profile,
             ...(config.agent.patch === '' ? [] : ['--patch', config.agent.patch]),
+            // 人设补丁放后面：它要覆盖静态补丁里的占位 personaPrefix
+            ...(personaPatch === undefined ? [] : ['--patch', personaPatch]),
             '--json'
           ],
           timeoutMs: config.agent.timeoutMs,

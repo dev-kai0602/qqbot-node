@@ -45,6 +45,13 @@ export interface AppConfig {
   healthIntervalSec: number;
   /** 单用户限流窗口（毫秒）：窗口内只放行一条；0 表示关闭 */
   rateLimitPerUserMs: number;
+  /** 形象（角色卡） */
+  persona: {
+    /** 卡片根目录；每张卡一个子目录 */
+    dir: string;
+    /** 指针文件：内容是一行 slug，空/缺失表示不加载卡片 */
+    file: string;
+  };
   /** DSH agent 接入 */
   agent: {
     /** chat 是否走 DSH agent；false 时回落到直连 DeepSeek 的旧路径 */
@@ -80,6 +87,10 @@ const DEFAULTS = {
   messageRetentionDays: 60,
   healthIntervalSec: 300,
   rateLimitPerUserMs: 2000,
+  persona: {
+    dir: 'data/personas',
+    file: 'data/persona'
+  },
   agent: {
     enabled: true,
     bin: 'dsh',
@@ -187,6 +198,10 @@ export function loadConfig(envFile = '.env'): AppConfig {
     messageRetentionDays: toNumber(get('QQBOT_MESSAGE_RETENTION_DAYS'), DEFAULTS.messageRetentionDays),
     healthIntervalSec: toNumber(get('QQBOT_HEALTH_INTERVAL_SEC'), DEFAULTS.healthIntervalSec),
     rateLimitPerUserMs: toNumber(get('QQBOT_RATE_LIMIT_PER_USER_MS'), DEFAULTS.rateLimitPerUserMs),
+    persona: {
+      dir: get('QQBOT_PERSONAS_DIR') ?? DEFAULTS.persona.dir,
+      file: get('QQBOT_PERSONA_FILE') ?? DEFAULTS.persona.file
+    },
     agent: {
       enabled: toBool(get('QQBOT_AGENT_ENABLED'), DEFAULTS.agent.enabled),
       bin: get('QQBOT_AGENT_BIN') ?? DEFAULTS.agent.bin,
