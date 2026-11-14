@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { AGENT_NAMESPACE, createDshAgent } from '../src/services/agent/dsh.js';
+import type { DailyBudget } from '../src/services/ai/budget.js';
 import { createMemoryKVStore } from '../src/services/storage/memory.js';
 import type { Logger } from '../src/types.js';
 
@@ -87,6 +88,54 @@ printf '{"type":"final","sessionId":"s","text":"late"}\n'
     } finally {
       f.cleanup();
     }
+  });
+
+  it('累加 step_end 的 usage 并记进预算', async () => {
+    const f = fakeDsh(`
+cat >/dev/null
+printf '{"type":"session","sessionId":"s1"}\n'
+printf '{"type":"status","phase":"step_end","turn":1,"step":1,"usage":{"inputTokens":100,"outputTokens":20}}\n'
+printf '{"type":"status","phase":"step_end","turn":1,"step":2,"usage":{"inputTokens":5,"outputTokens":1}}\n'
+printf '{"type":"final","sessionId":"s1","text":"ok"}\n'
+`);
+    try {
+      let recorded: [number, number] | undefined;
+      const budget = {
+        canSpend: () => true,
+        record: (i: number, o: number) => { recorded = [i, o]; return 0.02; },
+        spentCny: () => 0,
+        limit: () => 20
+      } as unknown as DailyBudget;
+      const agent = createDshAgent({ log, kv: createMemoryKVStore(), bin: f.bin, budget });
+      const reply = await agent.ask({ sessionKey: 'c2c:u1', text: 'hi' });
+      expect(reply.degraded).toBe(false);
+      expect(reply.inputTokens).toBe(105);
+      expect(reply.outputTokens).toBe(21);
+      expect(recorded).toEqual([105, 21]);
+    } finally {
+      f.cleanup();
+    }
+  });
+
+  it('预算耗尽时不 spawn 子进程，直接返回额度话术', async () => {
+    const budget = {
+      canSpend: () => false,
+      record: () => 0,
+      spentCny: () => 20,
+      limit: () => 20
+    } as unknown as DailyBudget;
+    const agent = createDshAgent({
+      log,
+      kv: createMemoryKVStore(),
+      bin: '/nonexistent/dsh-binary',
+      budget,
+      budgetExhaustedText: '没钱了'
+    });
+    const started = Date.now();
+    const reply = await agent.ask({ sessionKey: 'c2c:u1', text: 'hi' });
+    expect(reply).toMatchObject({ text: '没钱了', degraded: true, reason: 'budget_exhausted' });
+    // 没有 spawn 才会这么快；spawn 失败要等到 error 事件
+    expect(Date.now() - started).toBeLessThan(1000);
   });
 
   it('没有 final 事件时降级', async () => {

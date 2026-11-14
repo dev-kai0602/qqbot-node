@@ -19,6 +19,8 @@ const ai: AiService = {
   resetContext: () => {}
 };
 
+const agent = { available: false, ask: async () => ({ text: '', degraded: true }) };
+
 const safety: SafetyService = {
   checkInput: () => ({ hit: false, matched: [] }),
   checkOutput: () => ({ hit: false, matched: [] }),
@@ -50,6 +52,7 @@ const services: Services = {
   dataDir: 'data',
   timeZone: 'UTC',
   ai,
+  agent,
   safety,
   storage,
   metrics,

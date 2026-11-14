@@ -8,6 +8,7 @@
 import type {
   AiService, Logger, MetricsService, SafetyService, SchedulerService, Services
 } from '../types.js';
+import type { AgentGateway } from './agent/types.js';
 import type { StorageService } from './storage/types.js';
 
 export interface ServiceOptions {
@@ -15,6 +16,7 @@ export interface ServiceOptions {
   dataDir: string;
   timeZone: string;
   ai: AiService;
+  agent: AgentGateway;
   safety: SafetyService;
   storage: StorageService;
   metrics: MetricsService;
@@ -27,6 +29,7 @@ export function createServices(opts: ServiceOptions): Services {
     dataDir: opts.dataDir,
     timeZone: opts.timeZone,
     ai: opts.ai,
+    agent: opts.agent,
     safety: opts.safety,
     storage: opts.storage,
     metrics: opts.metrics,

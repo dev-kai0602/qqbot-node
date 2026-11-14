@@ -8,6 +8,7 @@
 
 import { createMemoryMessageStore } from '../src/services/storage/memory.js';
 import type { KVStore, StorageService } from '../src/services/storage/types.js';
+import type { AgentGateway } from '../src/services/agent/types.js';
 import type {
   AiService, Logger, MetricsService, SafetyService, SchedulerService, Services
 } from '../src/types.js';
@@ -33,6 +34,14 @@ export function stubAi(overrides: Partial<AiService> = {}): AiService {
     budgetLimitCny: () => 0,
     contextSize: () => 0,
     resetContext: () => {},
+    ...overrides
+  };
+}
+
+export function stubAgent(overrides: Partial<AgentGateway> = {}): AgentGateway {
+  return {
+    available: false,
+    ask: async () => ({ text: '', degraded: true }),
     ...overrides
   };
 }
@@ -99,6 +108,7 @@ export function stubServices(overrides: Partial<Services> = {}): Services {
     dataDir: 'data',
     timeZone: 'Asia/Shanghai',
     ai: stubAi(),
+    agent: stubAgent(),
     safety: stubSafety(),
     storage: stubStorage(),
     metrics: stubMetrics(),

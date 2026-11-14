@@ -24,6 +24,7 @@ function harness(metrics: MetricsService): { ctx: PluginContext; event: BotConte
       contextSize: () => 0,
       resetContext: () => {}
     },
+    agent: { available: false, ask: async () => ({ text: '', degraded: true }) },
     safety: {
       checkInput: () => ({ hit: false, matched: [] }),
       checkOutput: () => ({ hit: false, matched: [] }),

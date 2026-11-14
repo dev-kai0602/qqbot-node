@@ -60,6 +60,7 @@ function harness(store: MessageStore, scope: 'c2c' | 'group', content: string): 
       contextSize: () => 0,
       resetContext: () => {}
     },
+    agent: { available: false, ask: async () => ({ text: '', degraded: true }) },
     safety: {
       checkInput: () => ({ hit: false, matched: [] }),
       checkOutput: () => ({ hit: false, matched: [] }),

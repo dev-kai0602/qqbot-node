@@ -15,6 +15,7 @@ import type { AppConfig } from './config.js';
 import { createLogger } from './logger.js';
 import { createServices } from './services/index.js';
 import { createAiService, createUnavailableAi } from './services/ai/index.js';
+import { createDshAgent, createUnavailableAgent } from './services/agent/dsh.js';
 import { createDeepSeekProvider } from './services/ai/deepseek.js';
 import { DailyBudget } from './services/ai/budget.js';
 import { createSafetyService } from './services/safety.js';
@@ -57,7 +58,8 @@ function buildAi(
   config: AppConfig,
   log: Logger,
   storage: StorageService,
-  metrics: MetricsService
+  metrics: MetricsService,
+  budget: DailyBudget
 ): AiService {
   if (config.ai.apiKey === '') {
     return createUnavailableAi(log, 'missing_api_key');
@@ -73,17 +75,7 @@ function buildAi(
     maxTokens: config.ai.maxTokens,
     reasoningEffort: config.ai.reasoningEffort,
     systemPrompt: config.ai.systemPrompt,
-    budget: new DailyBudget({
-      dailyLimitCny: config.ai.dailyBudgetCny,
-      priceInputCnyPerM: config.ai.priceInputCnyPerM,
-      priceOutputCnyPerM: config.ai.priceOutputCnyPerM,
-      timeZone: config.timeZone,
-      // 落库：否则进程一重启预算就归零，每日熔断等于失效
-      persistence: storage.spend,
-      onPersistError: (err: unknown) => {
-        log.error('budget persist failed', { error: serializeError(err) });
-      }
-    }),
+    budget,
     store: storage.messages,
     contextMessages: config.ai.contextMessages,
     contextChars: config.ai.contextChars,
@@ -132,8 +124,39 @@ async function main(): Promise<void> {
         ? { spentCny: 0, limitCny: 0 }
         : { spentCny: aiRef.spentCny(), limitCny: aiRef.budgetLimitCny() }
   });
-  const ai = buildAi(config, log, storage, metrics);
+  // 预算由 agent 与旧的 AI 路径共用：两条路都该算进同一个每日上限
+  const budget = new DailyBudget({
+    dailyLimitCny: config.ai.dailyBudgetCny,
+    priceInputCnyPerM: config.ai.priceInputCnyPerM,
+    priceOutputCnyPerM: config.ai.priceOutputCnyPerM,
+    timeZone: config.timeZone,
+    // 落库：否则进程一重启预算就归零，每日熔断等于失效
+    persistence: storage.spend,
+    onPersistError: (err: unknown) => {
+      log.error('budget persist failed', { error: serializeError(err) });
+    }
+  });
+
+  const ai = buildAi(config, log, storage, metrics, budget);
   aiRef = ai;
+
+  const agent = !config.agent.enabled
+    ? createUnavailableAgent(log, 'agent_disabled')
+    : config.ai.apiKey === ''
+      ? createUnavailableAgent(log, 'missing_api_key')
+      : createDshAgent({
+          log,
+          kv: storage.kv,
+          bin: config.agent.bin,
+          timeoutMs: config.agent.timeoutMs,
+          cwd: config.dataDir,
+          // 不把密钥写进新文件：复用 .env 里已有的这把
+          env: { DEEPSEEK_API_KEY: config.ai.apiKey },
+          budget,
+          metrics,
+          fallbackText: config.ai.fallbackText,
+          budgetExhaustedText: config.ai.budgetExhaustedText
+        });
   const safety = createSafetyService({
     extraTerms: config.ai.safetyExtraTerms,
     refusalText: config.ai.safetyRefusalText
@@ -144,6 +167,7 @@ async function main(): Promise<void> {
     dataDir: config.dataDir,
     timeZone: config.timeZone,
     ai,
+    agent,
     safety,
     storage,
     metrics,

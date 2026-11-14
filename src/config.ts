@@ -45,6 +45,15 @@ export interface AppConfig {
   healthIntervalSec: number;
   /** 单用户限流窗口（毫秒）：窗口内只放行一条；0 表示关闭 */
   rateLimitPerUserMs: number;
+  /** DSH agent 接入 */
+  agent: {
+    /** chat 是否走 DSH agent；false 时回落到直连 DeepSeek 的旧路径 */
+    enabled: boolean;
+    /** dsh 可执行文件；systemd 的默认 PATH 里通常没有 */
+    bin: string;
+    /** 单轮超时（毫秒） */
+    timeoutMs: number;
+  };
   /** 计算「今天」用的时区（签到、AI 预算共用） */
   timeZone: string;
   /** 插件配置命名空间：键为插件名，值为该插件的原始配置 */
@@ -67,6 +76,11 @@ const DEFAULTS = {
   messageRetentionDays: 60,
   healthIntervalSec: 300,
   rateLimitPerUserMs: 2000,
+  agent: {
+    enabled: true,
+    bin: 'dsh',
+    timeoutMs: 120000
+  },
   timeZone: DEFAULT_TIMEZONE,
   ai: {
     baseUrl: 'https://api.deepseek.com',
@@ -167,6 +181,11 @@ export function loadConfig(envFile = '.env'): AppConfig {
     messageRetentionDays: toNumber(get('QQBOT_MESSAGE_RETENTION_DAYS'), DEFAULTS.messageRetentionDays),
     healthIntervalSec: toNumber(get('QQBOT_HEALTH_INTERVAL_SEC'), DEFAULTS.healthIntervalSec),
     rateLimitPerUserMs: toNumber(get('QQBOT_RATE_LIMIT_PER_USER_MS'), DEFAULTS.rateLimitPerUserMs),
+    agent: {
+      enabled: toBool(get('QQBOT_AGENT_ENABLED'), DEFAULTS.agent.enabled),
+      bin: get('QQBOT_AGENT_BIN') ?? DEFAULTS.agent.bin,
+      timeoutMs: toNumber(get('QQBOT_AGENT_TIMEOUT_MS'), DEFAULTS.agent.timeoutMs)
+    },
     timeZone: get('QQBOT_TIMEZONE') ?? DEFAULTS.timeZone,
     plugins: collectPlugins([file, env]),
     ai: {

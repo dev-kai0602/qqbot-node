@@ -12,6 +12,9 @@ export interface AgentRequest {
 
 export interface AgentReply {
   readonly text: string;
+  /** 本轮 token 用量；没有 usage 事件时缺省（预算不记账） */
+  readonly inputTokens?: number;
+  readonly outputTokens?: number;
   /** agent 侧会话 id；首次调用后才有，供诊断与跨重启续聊 */
   readonly sessionId?: string;
   /** true 表示没拿到正常回答（超时 / 进程异常 / 模型报错），text 是兜底话术 */

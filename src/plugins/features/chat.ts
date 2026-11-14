@@ -1,10 +1,8 @@
 /**
- * 对话插件：把用户消息交给 AI，再把回答发回去。
+ * 对话插件：把用户消息交给 DSH agent，再把回答发回去。
  *
- * 上下文策略（折中方案）：
- *  - 群聊**共享**一份完整对话上下文（机器人能看到群里所有人在说什么）
- *  - 但每条用户消息带上 [说话人] 前缀，模型据此区分不同人
- *  - 单聊只有一个说话人，不加前缀
+ * 上下文由 agent 侧维护：每个会话键对应一个 DSH session（id 落 KV，重启续用），
+ * 群里共享一份上下文，所以消息仍带 [昵称] 前缀，让模型知道是谁在说话。
  *
  * 两条安全策略（C3 + R18 的默认取舍）：
  *  - 输入侧命中：只记录与告警，**不拒答**（输入侧拒答会误伤正常提问）
@@ -12,21 +10,21 @@
  */
 
 import type { BotContext, Plugin, PluginContext } from '../../types.js';
-import { speakerLabel } from '../../util/speaker.js';
+import { renderUserMessage, speakerLabel } from '../../util/speaker.js';
 
 export function createChatPlugin(): Plugin {
   return {
     name: 'chat',
     setup(ctx: PluginContext): void {
-      if (!ctx.services.ai.available) {
-        ctx.log.warn('chat plugin inactive: ai service unavailable (未配置 QQBOT_AI_API_KEY)');
+      if (!ctx.services.agent.available) {
+        ctx.log.warn('chat plugin inactive: agent unavailable (检查 QQBOT_AGENT_ENABLED / QQBOT_AI_API_KEY)');
         return;
       }
-      ctx.log.info('chat plugin ready');
+      ctx.log.info('chat plugin ready', { backend: 'dsh-agent' });
     },
     async handle(event: BotContext, ctx: PluginContext): Promise<boolean> {
-      const ai = ctx.services.ai;
-      if (!ai.available) return false;
+      const agent = ctx.services.agent;
+      if (!agent.available) return false;
 
       const text = event.event.content.trim();
       if (text === '' || text.startsWith('/')) return false;
@@ -48,12 +46,8 @@ export function createChatPlugin(): Plugin {
         });
       }
 
-      const reply = await ai.chat({
-        sessionKey,
-        userId: event.event.senderId,
-        ...(speaker !== undefined ? { speaker } : {}),
-        text
-      }, event.signal);
+      // 群聊保留 [昵称] 前缀：DSH 会话是整群共享的，模型要能区分谁在说话
+      const reply = await agent.ask({ sessionKey, text: renderUserMessage(speaker, text) }, event.signal);
 
       // 被取消（分发超时 / 进程退出）后不能再发：迟到的那条会变成第二条回复
       if (event.signal?.aborted === true) {

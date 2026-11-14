@@ -5,6 +5,7 @@
  * 于是「换 SDK」只需要改 transport/bot.ts 一个文件。
  */
 
+import type { AgentGateway } from './services/agent/types.js';
 import type { StorageService } from './services/storage/types.js';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
@@ -210,6 +211,8 @@ export interface Services {
   /** 计算「今天」用的时区；签到与 AI 预算共用，避免各自实现导致口径不一致 */
   readonly timeZone: string;
   readonly ai: AiService;
+  /** DSH agent；chat 的回复由它产生（ai 保留给尚未迁移的路径与预算） */
+  readonly agent: AgentGateway;
   readonly safety: SafetyService;
   /** 消息存储；AI 上下文从这里读写，后续「签到」等插件也用它 */
   readonly storage: StorageService;
