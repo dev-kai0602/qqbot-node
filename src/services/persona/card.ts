@@ -51,6 +51,18 @@ function sanitize(text: string): string {
   return text.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
 }
 
+/**
+ * 角色卡用 {{char}} / {{user}} 占位，而 dsh 的 personaPrefix 是**模板**：
+ * 它只认 {{provider}} / {{model}}，遇到别的花括号变量会直接报错并让整轮失败。
+ * 所以这里必须把占位符换成具体称呼，剩下的未知变量降级成普通文本。
+ */
+export function resolvePlaceholders(text: string, name: string): string {
+  return text
+    .replace(/\{\{\s*char\s*\}\}/gi, name)
+    .replace(/\{\{\s*user\s*\}\}/gi, '群友')
+    .replace(/\{\{\s*([^{}]*?)\s*\}\}/g, '$1');
+}
+
 export function cardToPersona(card: CharacterCard, id: string): Persona {
   const name = clip(card.name, 40) || id;
   const description = clip(card.description, LIMITS.description);
@@ -69,6 +81,6 @@ export function cardToPersona(card: CharacterCard, id: string): Persona {
   if (postHistory !== '') parts.push(postHistory);
   parts.push(QQ_RULES);
 
-  const text = sanitize(parts.join('\n')).slice(0, LIMITS.total);
+  const text = resolvePlaceholders(sanitize(parts.join('\n')), name).slice(0, LIMITS.total);
   return { id, name, text };
 }

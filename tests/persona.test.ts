@@ -44,6 +44,17 @@ describe('角色卡 → 人设', () => {
     expect(p.text).toContain('…');
   });
 
+  it('{{char}}/{{user}} 被替换，且不留下任何花括号变量（dsh 会当模板变量报错）', () => {
+    const p = cardToPersona(card({
+      mes_example: '{{user}}: 在吗\n{{char}}: 在的喵',
+      system_prompt: '记住 {{random_thing}} 的存在'
+    }), 'neko');
+    expect(p.text).toContain('群友: 在吗');
+    expect(p.text).toContain('小音: 在的喵');
+    expect(p.text).not.toContain('{{');
+    expect(p.text).not.toContain('}}');
+  });
+
   it('空卡片也能给出可用人设（不抛错）', () => {
     const p = cardToPersona(CharacterCard.from_json({ spec: 'chara_card_v2', spec_version: '2.0', data: {} }), 'empty');
     expect(p.name).toBe('empty');
