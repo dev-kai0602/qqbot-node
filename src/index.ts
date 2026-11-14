@@ -27,6 +27,7 @@ import { PluginRegistry } from './plugins/registry.js';
 import { defaultFeaturesDir, loadPlugins } from './plugins/loader.js';
 import { createPluginConfig } from './plugins/config.js';
 import { serializeError } from './util/errors.js';
+import { createDrainTracker } from './util/drain.js';
 import type { AiService, BotContext, Logger, MetricsService, Plugin } from './types.js';
 
 /**
@@ -38,6 +39,18 @@ import type { AiService, BotContext, Logger, MetricsService, Plugin } from './ty
  */
 function pluginTimeoutMs(config: AppConfig): number {
   return Math.max(15000, config.ai.timeoutMs + 5000);
+}
+
+/** 退出时最多等在途事件多久 */
+const SHUTDOWN_DRAIN_MS = 5000;
+/** 插件 stop 最多等多久（超时也继续关资源，不能无限挂住进程） */
+const SHUTDOWN_STOP_MS = 5000;
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    if (typeof timer.unref === 'function') timer.unref();
+  });
 }
 
 function buildAi(
@@ -170,6 +183,10 @@ async function main(): Promise<void> {
   });
   for (const plugin of enabled) registry.add(plugin);
 
+  // 退出信号：SIGTERM 时中断在途任务；drain 用来等它们收尾后再关资源
+  const controller = new AbortController();
+  const drain = createDrainTracker();
+
   const transport = new BotTransport(
     {
       appId: config.appId,
@@ -180,7 +197,13 @@ async function main(): Promise<void> {
       metrics
     },
     async (ctx: BotContext): Promise<void> => {
-      await registry.dispatch(ctx);
+      const release = drain.begin();
+      try {
+        // 退出信号一并下发：SIGTERM 时在途的 AI 调用会被立刻取消
+        await registry.dispatch({ ...ctx, signal: controller.signal });
+      } finally {
+        release();
+      }
     }
   );
 
@@ -196,25 +219,38 @@ async function main(): Promise<void> {
     failed: loaded.failed
   });
 
-  const controller = new AbortController();
   let shuttingDown = false;
+  let shutdownDone: Promise<void> | undefined;
   const shutdown = (signal: string): void => {
     if (shuttingDown) return;
     shuttingDown = true;
-    log.warn('shutdown requested', { signal });
+    log.warn('shutdown requested', { signal, inflight: drain.inflight });
+
+    // 1) 取消在途任务，handler 会尽快返回
     controller.abort();
-    void registry.stopAll().finally(() => {
+    // 2) 停止接收新事件，drain 期间不会再起新的 handler
+    transport.stop();
+
+    // 3) 等在途任务收尾，再关插件与资源
+    shutdownDone = (async () => {
+      const drained = await drain.drain(SHUTDOWN_DRAIN_MS);
+      if (!drained) {
+        log.warn('drain timed out, closing with in-flight work', { inflight: drain.inflight });
+      }
+      await Promise.race([registry.stopAll(), delay(SHUTDOWN_STOP_MS)]);
       // 先停调度器：避免关闭过程中还触发新的定时任务
       scheduler.close();
-      transport.stop();
       metrics.close();
       storage.close();
-    });
+      log.info('shutdown complete', { drained });
+    })();
   };
   process.on('SIGINT', () => { shutdown('SIGINT'); });
   process.on('SIGTERM', () => { shutdown('SIGTERM'); });
 
   await transport.start(controller.signal);
+  // 等 shutdown 序列走完（drain → stopAll → 关资源）再退出进程
+  if (shutdownDone !== undefined) await shutdownDone;
   log.info('transport stopped, bye');
 }
 
