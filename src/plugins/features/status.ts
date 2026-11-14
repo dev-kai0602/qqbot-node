@@ -46,6 +46,7 @@ export function createStatusPlugin(): Plugin {
         '网关 READY ' + (c.gatewayReady ?? 0) + '｜RESUMED ' + (c.gatewayResumed ?? 0) +
           '｜错误 ' + (c.gatewayErrors ?? 0),
         '存储 ' + snap.storageKind + '｜去重丢弃 ' + (c.duplicatesDropped ?? 0) +
+          '｜限流丢弃 ' + (c.rateLimited ?? 0) +
           '｜插件错误 ' + (c.pluginFailures ?? 0)
       ];
       await ctx.api.reply(event, lines.join('\n'));

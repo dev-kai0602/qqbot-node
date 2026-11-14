@@ -43,6 +43,8 @@ export interface AppConfig {
   messageRetentionDays: number;
   /** 周期 health 日志间隔（秒）；0 表示关闭 */
   healthIntervalSec: number;
+  /** 单用户限流窗口（毫秒）：窗口内只放行一条；0 表示关闭 */
+  rateLimitPerUserMs: number;
   /** 计算「今天」用的时区（签到、AI 预算共用） */
   timeZone: string;
   /** 插件配置命名空间：键为插件名，值为该插件的原始配置 */
@@ -64,6 +66,7 @@ const DEFAULTS = {
   dataDir: 'data',
   messageRetentionDays: 60,
   healthIntervalSec: 300,
+  rateLimitPerUserMs: 2000,
   timeZone: DEFAULT_TIMEZONE,
   ai: {
     baseUrl: 'https://api.deepseek.com',
@@ -163,6 +166,7 @@ export function loadConfig(envFile = '.env'): AppConfig {
     dataDir: get('QQBOT_DATA_DIR') ?? DEFAULTS.dataDir,
     messageRetentionDays: toNumber(get('QQBOT_MESSAGE_RETENTION_DAYS'), DEFAULTS.messageRetentionDays),
     healthIntervalSec: toNumber(get('QQBOT_HEALTH_INTERVAL_SEC'), DEFAULTS.healthIntervalSec),
+    rateLimitPerUserMs: toNumber(get('QQBOT_RATE_LIMIT_PER_USER_MS'), DEFAULTS.rateLimitPerUserMs),
     timeZone: get('QQBOT_TIMEZONE') ?? DEFAULTS.timeZone,
     plugins: collectPlugins([file, env]),
     ai: {

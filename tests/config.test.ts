@@ -50,6 +50,18 @@ describe('配置与插件命名空间', () => {
     expect(isPluginEnabled(off, 'echo')).toBe(true);
   });
 
+  it('单用户限流默认 2s，可覆盖，0 表示关闭', () => {
+    process.env['QQBOT_APP_ID'] = '123';
+    process.env['QQBOT_APP_SECRET'] = 'x'.repeat(32);
+    expect(loadConfig('/nonexistent-env-file').rateLimitPerUserMs).toBe(2000);
+
+    process.env['QQBOT_RATE_LIMIT_PER_USER_MS'] = '500';
+    expect(loadConfig('/nonexistent-env-file').rateLimitPerUserMs).toBe(500);
+
+    process.env['QQBOT_RATE_LIMIT_PER_USER_MS'] = '0';
+    expect(loadConfig('/nonexistent-env-file').rateLimitPerUserMs).toBe(0);
+  });
+
   it('缺密钥时报错并指名缺哪一项', () => {
     expect(() => loadConfig('/nonexistent-env-file')).toThrow(/QQBOT_APP_ID/);
   });

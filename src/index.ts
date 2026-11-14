@@ -193,6 +193,7 @@ async function main(): Promise<void> {
       appSecret: config.appSecret,
       transport: config.transport,
       markdownSupport: config.markdownSupport,
+      rateLimitPerUserMs: config.rateLimitPerUserMs,
       logger: log,
       metrics
     },

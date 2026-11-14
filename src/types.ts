@@ -146,6 +146,7 @@ export type MetricName =
   | 'repliesSent'
   | 'replyFailures'
   | 'duplicatesDropped'
+  | 'rateLimited'
   | 'unsupportedScope'
   | 'gatewayReady'
   | 'gatewayResumed'

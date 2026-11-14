@@ -8,6 +8,7 @@
 - BotTransport 同时实现 BotApi，是插件唯一的消息出口。
 - reply() 走被动消息（带 msgId，受平台 5 分钟窗口约束）；send() 主动消息**刻意不携带 msgId**，否则会被平台当成被动回复。
 - onMessage() 的固定顺序：去重 → scope 校验 → 归一化 → 计数与日志 → 交给 handler，不可调换。
+- **SDK middleware 链跑在 onMessage 之前**：当前只挂了 `rateLimiter`（单用户限流，默认 2s 一条，`QQBOT_RATE_LIMIT_PER_USER_MS=0` 关闭）。被限流的消息不会进入去重窗口，所以「同一条消息被重复推送且落在限流窗口内」只会记 `rateLimited`，不会记 `duplicatesDropped`。
 - SDK 的 message 回调**刻意不 await** handler，以尽快把控制权交回事件循环；因此必须 .catch() 兜住 Promise。
 
 ## Anti-patterns

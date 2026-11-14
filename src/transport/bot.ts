@@ -4,7 +4,7 @@
  * 业务逻辑一律不在这里。
  */
 
-import { QQBot } from '@tencent-connect/qqbot-nodejs';
+import { QQBot, rateLimiter } from '@tencent-connect/qqbot-nodejs';
 import type { QQBotInboundMessage } from '@tencent-connect/qqbot-nodejs';
 import type {
   BotApi, BotContext, ChatScope, InboundEvent, Logger, MetricsService, ReplyTarget
@@ -17,6 +17,8 @@ export interface BotTransportOptions {
   appSecret: string;
   transport: 'websocket' | 'webhook';
   markdownSupport: boolean;
+  /** 单用户限流窗口（毫秒）；0 表示关闭 */
+  rateLimitPerUserMs: number;
   logger: Logger;
   metrics: MetricsService;
 }
@@ -49,6 +51,18 @@ export class BotTransport implements BotApi {
       markdownSupport: opts.markdownSupport,
       logger: opts.logger
     });
+
+    // 准入限流：单用户窗口内只放行一条，超出的直接丢弃。
+    // 刻意不排队——排队只会在窗口过后补发一串迟到的回复，比丢弃更像机器人。
+    if (opts.rateLimitPerUserMs > 0) {
+      this.bot.use(rateLimiter({
+        perSender: { max: 1, windowMs: opts.rateLimitPerUserMs },
+        onLimit: (_ctx, tier) => {
+          this.metrics.inc('rateLimited');
+          this.log.warn('message rate limited', { tier, windowMs: opts.rateLimitPerUserMs });
+        }
+      }));
+    }
 
     this.bot.on('ready', () => {
       this.metrics.inc('gatewayReady');
