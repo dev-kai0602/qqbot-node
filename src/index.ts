@@ -150,8 +150,13 @@ async function main(): Promise<void> {
           bin: config.agent.bin,
           timeoutMs: config.agent.timeoutMs,
           cwd: config.dataDir,
-          // 不把密钥写进新文件：复用 .env 里已有的这把
-          env: { DEEPSEEK_API_KEY: config.ai.apiKey },
+          // 不把密钥写进新文件：复用 .env 里已有的这把。
+          // DSH_PERMISSION_MODE 压到 read-only：群友的消息就是提示词，
+          // 模型层的「拒绝」不是安全边界，沙箱才是。
+          env: {
+            DEEPSEEK_API_KEY: config.ai.apiKey,
+            DSH_PERMISSION_MODE: 'read-only'
+          },
           budget,
           metrics,
           fallbackText: config.ai.fallbackText,
