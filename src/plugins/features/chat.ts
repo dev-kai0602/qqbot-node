@@ -16,15 +16,18 @@ export function createChatPlugin(): Plugin {
   return {
     name: 'chat',
     setup(ctx: PluginContext): void {
-      if (!ctx.services.agent.available) {
-        ctx.log.warn('chat plugin inactive: agent unavailable (检查 QQBOT_AGENT_ENABLED / QQBOT_AI_API_KEY)');
+      const agent = ctx.services.agent;
+      if (!agent.available && !ctx.services.ai.available) {
+        ctx.log.warn('chat plugin inactive: 既没有 agent 也没有 ai（检查 QQBOT_AGENT_ENABLED / QQBOT_AI_API_KEY）');
         return;
       }
-      ctx.log.info('chat plugin ready', { backend: 'dsh-agent' });
+      ctx.log.info('chat plugin ready', { backend: agent.available ? 'dsh-agent' : 'direct-ai' });
     },
     async handle(event: BotContext, ctx: PluginContext): Promise<boolean> {
       const agent = ctx.services.agent;
-      if (!agent.available) return false;
+      const ai = ctx.services.ai;
+      // agent 关闭时回落到直连 DeepSeek：安全事件里可以一键切回去
+      if (!agent.available && !ai.available) return false;
 
       const text = event.event.content.trim();
       if (text === '' || text.startsWith('/')) return false;
@@ -47,7 +50,14 @@ export function createChatPlugin(): Plugin {
       }
 
       // 群聊保留 [昵称] 前缀：DSH 会话是整群共享的，模型要能区分谁在说话
-      const reply = await agent.ask({ sessionKey, text: renderUserMessage(speaker, text) }, event.signal);
+      const reply = agent.available
+        ? await agent.ask({ sessionKey, text: renderUserMessage(speaker, text) }, event.signal)
+        : await ai.chat({
+            sessionKey,
+            userId: event.event.senderId,
+            ...(speaker !== undefined ? { speaker } : {}),
+            text
+          }, event.signal);
 
       // 被取消（分发超时 / 进程退出）后不能再发：迟到的那条会变成第二条回复
       if (event.signal?.aborted === true) {
