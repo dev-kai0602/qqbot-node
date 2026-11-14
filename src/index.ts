@@ -113,7 +113,7 @@ async function main(): Promise<void> {
 
   mkdirSync(config.dataDir, { recursive: true });
 
-  const storage = createStorage({
+  const storage = await createStorage({
     log,
     dataDir: config.dataDir,
     retentionDays: config.messageRetentionDays

@@ -5,7 +5,8 @@
 **不拥有 schema 语义**——KV 的键空间由各插件自己定义，加功能不需要改存储层。
 
 ## Entry Points & Contracts
-- createStorage() 优先 SQLite，失败则降级内存并打 error 级日志；降级后 kind === memory 会出现在 /状态 与启动日志里。
+- createStorage() 是 **async**：sqlite 模块用动态 import（node:sqlite 在 Node < 22.13 不存在，静态 import 会让进程在加载阶段就崩，降级代码永远执行不到）。
+- createStorage() 优先 SQLite，失败则降级内存并打 error 级日志（带 node 版本与最低要求）；降级后 kind === memory 会出现在 /状态 与启动日志里。
 - 三个 store **各自持有独立连接**，共用同一个 qqbot.db。
 
 ## Anti-patterns
