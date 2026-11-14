@@ -1,0 +1,43 @@
+# QQ 群聊专用覆盖：把 agent 收成一个「只会说话」的助手。
+#
+# 背景：headless 默认带完整的编码工具链（fs / bash / web / subagent），
+# 而群友的一句话就是提示词。只读沙箱只挡写、不挡读，实测能把工作区外的
+# .env 读出来。真正安全的做法是让模型根本没有这些工具。
+#
+# 用法：dsh --profile headless --patch deploy/agent-chat.patch.yml --json -
+
+- id: tool-bash
+  disabled: true
+- id: tool-pwsh
+  disabled: true
+- id: tool-fs
+  disabled: true
+- id: tool-fs-search
+  disabled: true
+- id: tool-jobs
+  disabled: true
+- id: tool-web
+  disabled: true
+- id: tool-skill
+  disabled: true
+- id: tool-todo
+  disabled: true
+- id: tool-goal
+  disabled: true
+- id: tool-workflow
+  disabled: true
+- id: tool-subagent
+  disabled: true
+- id: tool-subagent-fork
+  disabled: true
+- id: tool-subagent-control
+  disabled: true
+- id: tool-working-directory
+  disabled: true
+
+# 顺手把人设从「编码 agent」换成群聊助手，避免它开口闭口命令行。
+- id: system-prompt
+  config:
+    personaPrefix: >-
+      你是 QQ 群里的聊天助手。回答简短、口语化，一般不超过 100 字；
+      不确定就直说不知道，不要编造；不要提工具、文件、命令行或你自己的实现细节。

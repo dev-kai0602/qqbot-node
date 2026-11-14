@@ -148,6 +148,11 @@ async function main(): Promise<void> {
           log,
           kv: storage.kv,
           bin: config.agent.bin,
+          baseArgs: [
+            '--profile', config.agent.profile,
+            ...(config.agent.patch === '' ? [] : ['--patch', config.agent.patch]),
+            '--json'
+          ],
           timeoutMs: config.agent.timeoutMs,
           cwd: config.dataDir,
           // 不把密钥写进新文件：复用 .env 里已有的这把。

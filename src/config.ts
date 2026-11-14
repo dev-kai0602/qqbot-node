@@ -51,6 +51,10 @@ export interface AppConfig {
     enabled: boolean;
     /** dsh 可执行文件；systemd 的默认 PATH 里通常没有 */
     bin: string;
+    /** dsh profile（headless / sdk …） */
+    profile: string;
+    /** 叠加的 patch 文件；空串表示不叠加。QQ 场景用它去掉全部工具 */
+    patch: string;
     /** 单轮超时（毫秒） */
     timeoutMs: number;
   };
@@ -79,6 +83,8 @@ const DEFAULTS = {
   agent: {
     enabled: true,
     bin: 'dsh',
+    profile: 'headless',
+    patch: '',
     timeoutMs: 120000
   },
   timeZone: DEFAULT_TIMEZONE,
@@ -184,6 +190,8 @@ export function loadConfig(envFile = '.env'): AppConfig {
     agent: {
       enabled: toBool(get('QQBOT_AGENT_ENABLED'), DEFAULTS.agent.enabled),
       bin: get('QQBOT_AGENT_BIN') ?? DEFAULTS.agent.bin,
+      profile: get('QQBOT_AGENT_PROFILE') ?? DEFAULTS.agent.profile,
+      patch: get('QQBOT_AGENT_PATCH') ?? DEFAULTS.agent.patch,
       timeoutMs: toNumber(get('QQBOT_AGENT_TIMEOUT_MS'), DEFAULTS.agent.timeoutMs)
     },
     timeZone: get('QQBOT_TIMEZONE') ?? DEFAULTS.timeZone,
